@@ -1,0 +1,15 @@
+const fs=require('fs'),babel=require('@babel/core'),{execSync}=require('child_process');
+const jsx=babel.transformSync(fs.readFileSync('src/app.jsx','utf8'),{presets:[['@babel/preset-react',{runtime:'classic'}]],compact:false}).code;
+fs.writeFileSync('tw.config.js',"module.exports={content:['./src/app.jsx'],corePlugins:{preflight:true}}");
+fs.writeFileSync('tw.css','@tailwind base;@tailwind components;@tailwind utilities;');
+const css=execSync('npx tailwindcss -c tw.config.js -i tw.css --minify 2>/dev/null').toString();
+const data='const IMAGES='+fs.readFileSync('images.json','utf8')+';\nconst LEVELS='+fs.readFileSync('levels.json','utf8')+';\n';
+const app=data+['logic','bitmaps','pipeline','scene'].map(f=>fs.readFileSync(`src/${f}.js`,'utf8')).join('\n').replace("if (typeof module !== 'undefined') module.exports = Logic;","")+'\n'+jsx;
+if(app.includes('</script'))throw new Error('script close in app');
+const tpl=fs.readFileSync('tpl.html','utf8');
+const mk=(r,rd,t)=>tpl.replace('/*TAILWIND*/',()=>css).replace('REACTDOM',rd).replace('REACT',r).replace('THREE',t).replace('/*APP*/',()=>app);
+fs.mkdirSync('dist',{recursive:true});
+const cd='https://cdnjs.cloudflare.com/ajax/libs/';
+fs.writeFileSync('dist/index.html',mk(cd+'react/18.2.0/umd/react.production.min.js',cd+'react-dom/18.2.0/umd/react-dom.production.min.js',cd+'three.js/r128/three.min.js'));
+fs.writeFileSync('dist/test.html',mk('../node_modules/react/umd/react.production.min.js','../node_modules/react-dom/umd/react-dom.production.min.js','../node_modules/three/build/three.min.js'));
+console.log('ok',fs.statSync('dist/index.html').size);
